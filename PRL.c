@@ -20,7 +20,7 @@ void drive(float distance, int speed){
     }
     int right_wheel_target_ticks = (right_wheel_tpr/wheel_circumference) * distance;
     int left_wheel_target_ticks = (left_wheel_tpr/wheel_circumference) * distance;
-    float tps = (1.0981818181818(speed) – 5.6363636363636);
+    float tps = (1.0981818181818(speed) - 5.6363636363636);
     float spt = 1/tps;
     float seconds_to_completion = right_wheel_target_ticks * spt;
     int right_wheel_target_speed =  speed;

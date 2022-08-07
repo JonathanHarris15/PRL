@@ -145,6 +145,78 @@ void right_arc(float deg, int speed, float pivot_point){
     mav(left_wheel,0);
     msleep(50);
 }
-void left(){
-    
+
+void left_turn(float deg, int speed, char pivot_point){
+    printf("%c\n",pivot_point);
+    if(speed > 1400){
+        printf("RUNTIME ERROR: turn speed must not exceed 1400\nNow stopping the program\n");
+        exit(0);
+    }
+    float left_wheel_arc_radius;
+    float right_wheel_arc_radius;
+    switch(pivot_point){
+        case 'm':
+            left_wheel_arc_radius = distance_between_wheels/2;
+            right_wheel_arc_radius = distance_between_wheels/2;
+            break;
+        case 'l':
+            left_wheel_arc_radius = 0;
+            right_wheel_arc_radius = distance_between_wheels;
+            break;
+        default:
+            printf("RUNTIME ERROR: Invalid pivot point!\nNow stopping the program\n");
+            exit(0);											
+    }
+    float left_wheel_arc_length = deg * (pi/180) * left_wheel_arc_radius;
+    float right_wheel_arc_length = deg * (pi/180) * right_wheel_arc_radius;
+    float right_wheel_target_ticks = (right_wheel_tpr/wheel_circumference) * right_wheel_arc_length;
+    float left_wheel_target_ticks = (left_wheel_tpr/wheel_circumference) * left_wheel_arc_length;
+    float tps = ((1.0981818181818 * abs(speed)) - 5.6363636363636);
+    float spt = 1/tps;
+    float seconds_to_completion = right_wheel_target_ticks * spt;
+    float right_wheel_target_speed =  ((right_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
+    float left_wheel_target_speed = ((left_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
+    cmpc(right_wheel);
+    cmpc(left_wheel);
+    while(abs(gmpc(right_wheel)) < right_wheel_target_ticks || abs(gmpc(left_wheel)) < left_wheel_target_ticks){
+        mav(right_wheel, right_wheel_target_speed);
+        mav(left_wheel, -left_wheel_target_speed);
+    }
+    mav(right_wheel,0);
+    mav(left_wheel,0);
+    msleep(50);
+}
+
+void left_arc(float deg, int speed, float pivot_point){
+    if(speed > 1400){
+        printf("RUNTIME ERROR: turn speed must not exceed 1400\nNow stopping the program\n");
+        exit(0);
+    }
+    if(pivot_point < 0){
+        printf("RUNTIME ERROR: pivot_point cannot be negative!\nNow stopping the program\n");
+        exit(0);
+    }
+    float left_wheel_arc_radius = abs(distance_between_wheels/2 - pivot_point);
+    float right_wheel_arc_radius = abs(-distance_between_wheels/2 - pivot_point);
+    float left_wheel_arc_length = deg * (pi/180) * left_wheel_arc_radius;
+    float right_wheel_arc_length = deg * (pi/180) * right_wheel_arc_radius;
+    float right_wheel_target_ticks = (right_wheel_tpr/wheel_circumference) * right_wheel_arc_length;
+    float left_wheel_target_ticks = (left_wheel_tpr/wheel_circumference) * left_wheel_arc_length;
+    float tps = ((1.0981818181818 * abs(speed)) - 5.6363636363636);
+    float spt = 1/tps;
+    float seconds_to_completion = left_wheel_target_ticks * spt;
+    float right_wheel_target_speed =  ((right_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
+    float left_wheel_target_speed = ((left_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
+    if(pivot_point < distance_between_wheels/2){
+        left_wheel_target_speed = -left_wheel_target_speed;
+    }
+    cmpc(right_wheel);
+    cmpc(left_wheel);
+    while(abs(gmpc(right_wheel)) < right_wheel_target_ticks || abs(gmpc(left_wheel)) < left_wheel_target_ticks){
+        mav(right_wheel, right_wheel_target_speed);
+        mav(left_wheel, left_wheel_target_speed);
+    }
+    mav(right_wheel,0);
+    mav(left_wheel,0);
+    msleep(50);
 }

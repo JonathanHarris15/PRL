@@ -16,15 +16,19 @@ being as accurate as possible in the setup is important.
 #define distance_between_wheels 16.25
 #define pi 3.14159265359
 
-float grey_value = 1700;//set this for the black tape functions
-float minimum_line_follow_radius = 30; float maximum_line_follow_radius = 1000; //line follow turning functions, adjust these to change the turning radius of the line follow
-int right_wheel_tpr = 1000;//dont touch this value it should be replaced by the set wheel ticks function
-int left_wheel_tpr = 1000;//dont touch this value it should be replaced by the set wheel ticks function
+//speed to ticks_per_second = (1.0981818181818 * abs(speed)) - 5.6363636363636
+
+float grey_value = 1700;
+float minimum_line_follow_radius = 30;
+float maximum_line_follow_radius = 1000;
+int right_wheel_tpr = 1000;
+int left_wheel_tpr = 1000;
 float right_wheel_tpc = 0;
 float left_wheel_tpc = 0;
-float accel_distance = 2;//this changes how far the bot takes to accel in deccel in cm
+float accel_distance = 2;
+float accel_deg = 10;
 
-//This is the first function that should be called in your main.c, the values should be how many ticks per rotation each motor is. Try to make these values as acurate AS POSSIBLE
+
 void set_wheel_ticks(int left, int right){
     left_wheel_tpr = left;
     right_wheel_tpr = right;
@@ -32,12 +36,14 @@ void set_wheel_ticks(int left, int right){
     right_wheel_tpc = right/wheel_circumference;
 }
 
-//an in sequence way to change the accel and deccel window length so that the behaviour is more variable
 void set_accel_window_drive(float distance){
     accel_distance = distance;
 }
 
-//nice helper function that just turns a single motor for a certain amount of ticks
+void set_accel_window_turn(float degrees){
+    accel_deg = degrees;
+}
+
 void spin_motor(int port, int ticks, int speed){
     cmpc(port);
     while(gmpc(port) < ticks){
@@ -47,19 +53,20 @@ void spin_motor(int port, int ticks, int speed){
     msleep(20);
 }
 
-//main drive function distance is measured in cm
 void drive(float distance, int speed){
-    if(speed > 1400){
-        printf("RUNTIME ERROR: drive speed must not exceed 1400\nNow stopping the program\n");
-        exit(0);
-    }
+    
     int right_wheel_target_ticks = (right_wheel_tpr/wheel_circumference) * distance;
     int left_wheel_target_ticks = (left_wheel_tpr/wheel_circumference) * distance;
     float accel_window_ticks = (right_wheel_target_ticks/wheel_circumference) * accel_distance;
     if(accel_window_ticks > right_wheel_target_ticks / 2){
         accel_window_ticks = right_wheel_target_ticks / 2 - 1;
     }
-    float tps = ((1.0981818181818 * abs(speed)) - 5.6363636363636);
+    float cps = speed;
+    float fastest_speed = 1367.09090909/((right_wheel_tpc+left_wheel_tpc)/2);
+    if(cps > fastest_speed){
+        cps = fastest_speed;
+    }
+    float tps = ((right_wheel_tpc+left_wheel_tpc)/2)*cps;
     float spt = 1/tps;
     float seconds_to_completion = right_wheel_target_ticks * spt;
     int right_wheel_target_speed =  ((right_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
@@ -91,14 +98,15 @@ void drive(float distance, int speed){
             mav(right_wheel, right_wheel_target_speed);
             mav(left_wheel, left_wheel_target_speed);
         }
-        
+        printf("right: %d\n", right_wheel_target_speed);
+        printf("left: %d\n\n", left_wheel_target_speed);
     }
     mav(right_wheel, 0);
     mav(left_wheel, 0);
     msleep(5);
 }
 
-//a helper function that takes the value of an analog port and calculates the turn radius of the line follow function
+
 float line_follow_calculate_radius(int error_value, float max_radius, float min_radius){
     float error_modifier = 1500; //NOTE: white means positive error and black means negative error FOR LEFT SIDE LINE FOLLOW
     if(error_value > error_modifier){
@@ -112,8 +120,6 @@ float line_follow_calculate_radius(int error_value, float max_radius, float min_
     }
 }
 
-//a helper function that calculates the wheel speed of both wheels based on a radius(cm) and the speed the center of the robot
-//WARNING: using speeds such as 750 with a very small radius makes the bot drive extremely fast
 float * calculate_wheel_speed(float radius, float speed){
     static float speeds[2];
     float theta = speed/radius;
@@ -122,12 +128,6 @@ float * calculate_wheel_speed(float radius, float speed){
     return speeds;
 }
 
-
-/*This line follow is special in that it DOES NOT meausure distance in how far the bot itself has traveled 
-and intead measures how far the bot has travelled in global space from the direction it has started, meaning 
-that for the best use of this function it is recomended to be parrallel to the line. If this condition is met 
-then it does not matter if the bot is 1cm away from the line or 6cm away the bot will travel the same distance 
-down the black line */
 void line_follow(float distance, float speed, int port){
     cmpc(0);
    	cmpc(1);
@@ -137,13 +137,22 @@ void line_follow(float distance, float speed, int port){
     long double local_y = 0;
     long double local_theta = 0;
     float speed_modifier = 0;
+    
+    float cps = speed;
+    float fastest_speed = 1367.09090909/((right_wheel_tpc+left_wheel_tpc)/2);
+    if(cps > fastest_speed){
+        cps = fastest_speed;
+    }
+    float tps = ((right_wheel_tpc+left_wheel_tpc)/2)*cps;
+    float target_speed = (tps + 5.6363636363636)/1.0981818181818;
+    
     float accel_window_ticks = (right_wheel_tpr/wheel_circumference) * accel_distance;
     if(accel_window_ticks > (distance*(right_wheel_tpr/wheel_circumference)) / 2){
         accel_window_ticks = (distance*(right_wheel_tpr/wheel_circumference) / 2) - 1;
     }
     while(local_y < distance*0.975609756){
         long double radius = line_follow_calculate_radius(grey_value-analog(port), maximum_line_follow_radius, minimum_line_follow_radius);
-    	float *speeds = calculate_wheel_speed(radius,speed);
+    	float *speeds = calculate_wheel_speed(radius,target_speed);
         if(gmpc(0) < accel_window_ticks){
             speed_modifier = (gmpc(0)/accel_window_ticks);
             if(speed_modifier < 0.1){
@@ -183,3 +192,32 @@ void line_follow(float distance, float speed, int port){
     mav(1,0);
     msleep(50);
 }
+
+void right_turn(float degree, float speed, float radius){
+    
+    float right_radius = radius-distance_between_wheels/2;
+    float left_radius = radius+distance_between_wheels/2;
+    
+    float right_wheel_cps = (speed*0.017453) * right_radius;
+    float left_wheel_cps = (speed*0.017453) * left_radius;
+    float right_wheel_tps = right_wheel_cps * right_wheel_tpc;
+    float left_wheel_tps = left_wheel_cps * left_wheel_tpc;
+    
+    float right_speed = (right_wheel_tps+5.6363636363636)/1.0981818181818;
+    float left_speed = (left_wheel_tps+5.6363636363636)/1.0981818181818;
+    
+    float theta = 0;
+    cmpc(left_wheel);
+    while(theta < degree){
+        mav(right_wheel, right_speed);
+        mav(left_wheel, left_speed);
+        msleep(5);
+        theta = (gmpc(left_wheel)/left_wheel_tpc)/(left_radius);
+        printf("%f\n",theta);
+    }
+    mav(right_wheel,0);
+    mav(left_wheel,0);
+    msleep(20);
+    
+}
+

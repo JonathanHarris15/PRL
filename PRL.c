@@ -208,7 +208,7 @@ void right_turn(float degree, float speed, float radius){
     
     float theta = 0;
     cmpc(left_wheel);
-    while(theta < degree){
+    while(abs(theta) < degree){
         mav(right_wheel, right_speed);
         mav(left_wheel, left_speed);
         msleep(5);

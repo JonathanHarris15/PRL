@@ -212,7 +212,7 @@ void right_turn(float degree, float speed, float radius){
         mav(right_wheel, right_speed);
         mav(left_wheel, left_speed);
         msleep(5);
-        theta = (gmpc(left_wheel)/left_wheel_tpc)/(left_radius);
+        theta = ((gmpc(left_wheel)/left_wheel_tpc)/(left_radius))*57.29577951;
         printf("%f\n",theta);
     }
     mav(right_wheel,0);

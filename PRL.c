@@ -1,12 +1,10 @@
 /*
-PRL v0.4
+PRL v0.49
 Creator: Jonathan Harris
 Advisors: Zach Zimmerman, Nathan Povendo, Qbit
-
 the Plainview Robotics Library is the entire collection of commands used by the Plainview Robotics Team.
 These functions rely on the internal counters of the wheels to make commands as accurate as possible so 
 being as accurate as possible in the setup is important.
-
 */
 
 
@@ -16,7 +14,7 @@ being as accurate as possible in the setup is important.
 #define distance_between_wheels 16.25
 #define pi 3.14159265359
 
-//speed to ticks_per_second = (1.0981818181818 * abs(speed)) - 5.6363636363636
+//speed to ticks_per_second = (1.08 * abs(speed)) - 2
 
 float grey_value = 1700;
 float minimum_line_follow_radius = 30;
@@ -69,8 +67,8 @@ void drive(float distance, int speed){
     float tps = ((right_wheel_tpc+left_wheel_tpc)/2)*cps;
     float spt = 1/tps;
     float seconds_to_completion = right_wheel_target_ticks * spt;
-    int right_wheel_target_speed =  ((right_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
-    int left_wheel_target_speed = ((left_wheel_target_ticks/seconds_to_completion) - 5.6363636363636)/1.0981818181818;
+    int right_wheel_target_speed =  ((right_wheel_target_ticks/seconds_to_completion) - 2)/1.08;
+    int left_wheel_target_speed = ((left_wheel_target_ticks/seconds_to_completion) - 2)/1.08;
     if(speed < 0 ){
         right_wheel_target_speed = -right_wheel_target_speed;
         left_wheel_target_speed = -left_wheel_target_speed;
@@ -144,7 +142,7 @@ void line_follow(float distance, float speed, int port){
         cps = fastest_speed;
     }
     float tps = ((right_wheel_tpc+left_wheel_tpc)/2)*cps;
-    float target_speed = (tps + 5.6363636363636)/1.0981818181818;
+    float target_speed = (tps + 2)/1.08;
     
     float accel_window_ticks = (right_wheel_tpr/wheel_circumference) * accel_distance;
     if(accel_window_ticks > (distance*(right_wheel_tpr/wheel_circumference)) / 2){
@@ -193,27 +191,44 @@ void line_follow(float distance, float speed, int port){
     msleep(50);
 }
 
-void right_turn(float degree, float speed, float radius){
+void right_turn(float degree, float speed, double radius){
     
-    float right_radius = radius-distance_between_wheels/2;
-    float left_radius = radius+distance_between_wheels/2;
+    double right_radius = radius-distance_between_wheels/2;
+    double left_radius = radius+distance_between_wheels/2;
+    printf("%f\n",right_radius);
+    double right_wheel_cps = (speed*0.017453) * right_radius;
+    double left_wheel_cps = (speed*0.017453) * left_radius;
+    double right_wheel_tps = right_wheel_cps * right_wheel_tpc;
+    double left_wheel_tps = left_wheel_cps * left_wheel_tpc;
     
-    float right_wheel_cps = (speed*0.017453) * right_radius;
-    float left_wheel_cps = (speed*0.017453) * left_radius;
-    float right_wheel_tps = right_wheel_cps * right_wheel_tpc;
-    float left_wheel_tps = left_wheel_cps * left_wheel_tpc;
-    
-    float right_speed = (right_wheel_tps+5.6363636363636)/1.0981818181818;
-    float left_speed = (left_wheel_tps+5.6363636363636)/1.0981818181818;
-    
-    float theta = 0;
+    double right_speed = (right_wheel_tps+2)/1.08;
+    double left_speed = (left_wheel_tps+2)/1.08;
+    float speed_modifier = 0;
+    double theta = 0;
     cmpc(left_wheel);
+    cmpc(right_wheel);
     while(abs(theta) < degree){
-        mav(right_wheel, right_speed);
-        mav(left_wheel, left_speed);
+        if(theta < accel_deg){
+            speed_modifier = (theta/accel_deg);
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else if(theta > degree - accel_deg){
+            speed_modifier = (degree - theta)/accel_deg;
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else{
+            speed_modifier = 1;
+        }
+        mav(right_wheel, right_speed*speed_modifier);
+        mav(left_wheel, left_speed*speed_modifier);
         msleep(5);
-        theta = ((gmpc(left_wheel)/left_wheel_tpc)/(left_radius))*57.29577951;
-        printf("%f\n",theta);
+        //double left_theta =  ((gmpc(left_wheel)/left_wheel_tpc)/(left_radius))*57.29577951;
+        //double right_theta =  ((gmpc(right_wheel)/right_wheel_tpc)/(right_radius))*57.29577951;
+        //theta = (right_theta+left_theta)/2;
+         theta = ((gmpc(left_wheel)/left_wheel_tpc)/(left_radius))*57.29577951;
+         
     }
     mav(right_wheel,0);
     mav(left_wheel,0);

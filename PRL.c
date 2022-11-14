@@ -19,6 +19,7 @@ float left_wheel_tpc = 0;
 
 
 float grey_value = 1700;
+float black_and_white_diff = 900;
 float minimum_line_follow_radius = 30;
 float maximum_line_follow_radius = 1000;
 
@@ -38,7 +39,7 @@ void set_accel_window_turn(float degrees){
 //function that takes the error value received from the line follow sensor and gives back a radius for the turn
 float line_follow_calculate_radius(int error_value, float max_radius, float min_radius){
     //NOTE: white means positive error and black means negative error FOR LEFT SIDE LINE FOLLOW
-    float error_modifier = 1500;
+    float error_modifier = black_and_white_diff*0.4;
     if(error_value > error_modifier){
         return -min_radius;
     }else if(error_value < -error_modifier){

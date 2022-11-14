@@ -10,8 +10,8 @@ being as accurate as possible in the setup is important.
 
 int create_in_use = 0;
 
-float wheel_circumference 21.36283;
-float distance_between_wheels 16.25;
+float wheel_circumference = 21.36283;
+float distance_between_wheels = 16.25;
 float right_wheel_tpr = 1000;
 float left_wheel_tpr = 1000;
 float right_wheel_tpc = 0;
@@ -24,7 +24,7 @@ float minimum_line_follow_radius = 30;
 float maximum_line_follow_radius = 1000;
 
 float accel_distance = 2;
-float accel_deg = 10;
+float accel_deg = 5;
 
 //change the distance that the robot accels and deccels
 void set_accel_window_drive(float distance){
@@ -82,37 +82,7 @@ void servo(int port, int position, int speed){
     set_servo_position(port,position); 
 } 
 
-void drive(float distance, int speed){
-    if(create_in_use = 0){
-        d_drive(distance, speed);
-    }else{
-        r_drive(distance, speed);
-    }
-}
 
-void line_follow(float distance, int speed, int port){
-    if(create_in_use = 0){
-        d_line_follow(distance, speed, port);
-    }else{
-        r_line_follow(distance, speed, port);
-    }
-}
-
-void turn_right(float degree, float speed, double radius){
-    if(create_in_use = 0){
-        d_turn_right(degree, speed, radius);
-    }else{
-        r_line_right(degree, speed, radius);
-    }
-}
-
-void turn_left(float degree, float speed, double radius){
-    if(create_in_use = 0){
-        d_turn_right(degree, speed, radius);
-    }else{
-        r_line_right(degree, speed, radius);
-    }
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -274,16 +244,20 @@ void d_right_turn(float degree, float speed, double radius){
     double theta = 0;
     cmpc(left_wheel);
     cmpc(right_wheel);
+    double used_accel_deg = accel_deg;
+    if(used_accel_deg > degree/2){
+        used_accel_deg = (degree/2)-1;
+    }
     while(abs(theta) < degree){
-        if(theta < accel_deg){
-            speed_modifier = (theta/accel_deg);
-            if(speed_modifier < 0.1){
-                speed_modifier = 0.1;
+        if(theta < used_accel_deg){
+            speed_modifier = (theta/used_accel_deg);
+            if(speed_modifier < 0.2){
+                speed_modifier = 0.2;
             }
-        }else if(theta > degree - accel_deg){
-            speed_modifier = (degree - theta)/accel_deg;
-            if(speed_modifier < 0.1){
-                speed_modifier = 0.1;
+        }else if(theta > degree - used_accel_deg){
+            speed_modifier = (degree - theta)/used_accel_deg;
+            if(speed_modifier < 0.2){
+                speed_modifier = 0.2;
             }
         }else{
             speed_modifier = 1;
@@ -319,16 +293,20 @@ void d_left_turn(float degree, float speed, double radius){
     double theta = 0;
     cmpc(left_wheel);
     cmpc(right_wheel);
+    double used_accel_deg = accel_deg;
+    if(used_accel_deg > degree/2){
+        used_accel_deg = (degree/2)-1;
+    }
     while(abs(theta) < degree){
-        if(theta < accel_deg){
-            speed_modifier = (theta/accel_deg);
-            if(speed_modifier < 0.1){
-                speed_modifier = 0.1;
+        if(theta < used_accel_deg){
+            speed_modifier = (theta/used_accel_deg);
+            if(speed_modifier < 0.2){
+                speed_modifier = 0.2;
             }
-        }else if(theta > degree - accel_deg){
-            speed_modifier = (degree - theta)/accel_deg;
-            if(speed_modifier < 0.1){
-                speed_modifier = 0.1;
+        }else if(theta > degree - used_accel_deg){
+            speed_modifier = (degree - theta)/used_accel_deg;
+            if(speed_modifier < 0.2){
+                speed_modifier = 0.2;
             }
         }else{
             speed_modifier = 1;
@@ -358,8 +336,8 @@ void d_left_turn(float degree, float speed, double radius){
 void create_activate(){
     create_in_use = 1;
     create_connect();
-    wheel_circumference 22.61946711;
-    distance_between_wheels 23.5;
+    wheel_circumference = 22.61946711;
+    distance_between_wheels = 23.5;
     left_wheel_tpr = 508.8;
     right_wheel_tpr = 508.8;
     left_wheel_tpc = 508.8/wheel_circumference;
@@ -397,4 +375,39 @@ void r_right_turn(float degree, float speed, double radius){
 }
 void r_left_turn(float degree, float speed, double radius){
    
+}
+
+
+///////////UNIVERSAL FUNCTIONS//////////////
+
+void drive(float distance, int speed){
+    if(create_in_use == 0){
+        d_drive(distance, speed);
+    }else{
+        r_drive(distance, speed);
+    }
+}
+
+void line_follow(float distance, int speed, int port){
+    if(create_in_use == 0){
+        d_line_follow(distance, speed, port);
+    }else{
+        r_line_follow(distance, speed, port);
+    }
+}
+
+void right_turn(float degree, float speed, double radius){
+    if(create_in_use == 0){
+        d_right_turn(degree, speed, radius);
+    }else{
+        r_right_turn(degree, speed, radius);
+    }
+}
+
+void left_turn(float degree, float speed, double radius){
+    if(create_in_use == 0){
+        d_left_turn(degree, speed, radius);
+    }else{
+        r_left_turn(degree, speed, radius);
+    }
 }

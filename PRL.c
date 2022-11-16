@@ -1,10 +1,33 @@
 /*
-PRL v0.56
+PRL v0.9
 Creator: Jonathan Harris, Jacob Ross
 Advisors: Zach Zimmerman, Nathan Povendo, Qbit
 the Plainview Robotics Library is the entire collection of commands used by the Plainview Robotics Team.
 These functions rely on the internal counters of the wheels to make commands as accurate as possible so 
 being as accurate as possible in the setup is important.
+
+SETUP:
+The setup of this library for use is extremely easy and only requires a couple of steps.
+1. The first thing that needs to be done is adding the following two lines ABOVE the include for this library in the main.c file:
+    #include <stdlib.h>
+    #include <math.h>
+2. If you are using the library for a demo bot (anything but the create), then you need to call the function set_wheel_ticks(float l, float r)
+	at the beginning of your code even before wait for light or anything else. The parameters should be the ticks per one wheel rotation for both wheels
+    respectively. These two numbers should be as close to the actual number of ticks per rotation as physically possible.
+3. If you are using a create bot then disreguard step 2 and use the function create_activate() instead of the usual create_connect() function. This will 
+	notify the library that a create is in use so that it will use the correct functions
+    
+    
+USE:
+The same function call works for both the create and the demo bot assuming that when using a create you followed setup step #3. 
+The list of functions is as follows:
+
+>servo(port, position, speed);
+>drive(distance in cm, cm per second);
+>line_follow(distance in cm, cm per second, port of line follow sensor);
+>right_turn(angle in deg, deg per second, radius of turning point);
+>left_turn(angle in deg, deg per second, radius of turning point);
+
 */
 #define pi 3.14159265359
 
@@ -23,7 +46,7 @@ float black_and_white_diff = 900;
 float minimum_line_follow_radius = 30;
 float maximum_line_follow_radius = 1000;
 
-float accel_distance = 2;
+float accel_distance = 5;
 float accel_deg = 5;
 
 //change the distance that the robot accels and deccels
@@ -117,7 +140,7 @@ void d_drive(float distance, int speed){
     if(accel_window_ticks > right_wheel_target_ticks / 2){
         accel_window_ticks = right_wheel_target_ticks / 2 - 1;
     }
-    float cps = speed;
+    float cps = abs(speed);
     float fastest_speed = 1367.09090909/((right_wheel_tpc+left_wheel_tpc)/2);
     if(cps > fastest_speed){
         cps = fastest_speed;
@@ -131,21 +154,22 @@ void d_drive(float distance, int speed){
         right_wheel_target_speed = -right_wheel_target_speed;
         left_wheel_target_speed = -left_wheel_target_speed;
     }
+    printf("value: %f",right_wheel_tpc);
     cmpc(right_wheel);
     cmpc(left_wheel);
     float speed_mod = 0.05;
     while(abs(gmpc(right_wheel)) < right_wheel_target_ticks || abs(gmpc(left_wheel)) < left_wheel_target_ticks){
         if(abs(gmpc(right_wheel)) < accel_window_ticks){
             speed_mod = abs(gmpc(right_wheel))/accel_window_ticks;
-            if(speed_mod < 0.1){
-                speed_mod = 0.1;
+            if(speed_mod < 0.2){
+                speed_mod = 0.2;
             }
             mav(right_wheel, right_wheel_target_speed * speed_mod);
             mav(left_wheel, left_wheel_target_speed * speed_mod);
         }else if (abs(gmpc(right_wheel)) > right_wheel_target_ticks - accel_window_ticks){
             speed_mod = (right_wheel_target_ticks - abs(gmpc(right_wheel)))/accel_window_ticks;
-            if(speed_mod < 0.1){
-                speed_mod = 0.1;
+            if(speed_mod < 0.2){
+                speed_mod = 0.2;
             }
             mav(right_wheel, right_wheel_target_speed * speed_mod);
             mav(left_wheel, left_wheel_target_speed * speed_mod);
@@ -154,8 +178,6 @@ void d_drive(float distance, int speed){
             mav(right_wheel, right_wheel_target_speed);
             mav(left_wheel, left_wheel_target_speed);
         }
-        printf("right: %d\n", right_wheel_target_speed);
-        printf("left: %d\n\n", left_wheel_target_speed);
     }
     mav(right_wheel, 0);
     mav(left_wheel, 0);
@@ -262,6 +284,8 @@ void d_right_turn(float degree, float speed, double radius){
         }else{
             speed_modifier = 1;
         }
+        
+        speed_modifier = 1;
         mav(right_wheel, right_speed*speed_modifier);
         mav(left_wheel, left_speed*speed_modifier);
         msleep(5);
@@ -336,6 +360,8 @@ void d_left_turn(float degree, float speed, double radius){
 void create_activate(){
     create_in_use = 1;
     create_connect();
+    printf("create connected!\n");
+    create_full();
     wheel_circumference = 22.61946711;
     distance_between_wheels = 23.5;
     left_wheel_tpr = 508.8;
@@ -363,18 +389,160 @@ int create_gmec(char wheel){
 }
 
 void r_drive(float distance, int speed){
+    float right = create_gmec('r');
+    float left = create_gmec('l');
     
+    float start_right_ticks = right;
+    float start_left_ticks = left;
+	float dist_travelled = 0;
+    float speed_modifier = 0.1;
+    while(dist_travelled < distance){
+        float speed_adj = -((left-start_left_ticks) - (right-start_right_ticks))*1;
+        if(dist_travelled < accel_distance){
+            speed_modifier = (dist_travelled/accel_distance);
+            
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else if(dist_travelled > distance - accel_distance*2){
+            speed_modifier = (distance - dist_travelled)/accel_distance;
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else{
+            speed_modifier = 1;
+        }
+        float right_speed = (speed-speed_adj)*speed_modifier;
+        if(right_speed < 25){
+            right_speed = 25;
+        }
+        float left_speed = (speed+speed_adj)*speed_modifier;
+      	if(left_speed < 25){
+            left_speed = 25;
+        }
+        create_drive_direct(left_speed,right_speed);
+        msleep(5);  	
+        right = create_gmec('r');
+        left = create_gmec('l');
+        float right_movement = (right-start_right_ticks) * (pi * 7.2 / 508.8);
+        float left_movement = (left-start_left_ticks) * (pi * 7.2 / 508.8);
+        dist_travelled = (right_movement + left_movement)/2;
+        
+    }
+    while(dist_travelled > distance){
+        create_drive_direct(-20,-20);
+        right = create_gmec('r');
+        left = create_gmec('l');
+        float right_movement = (right-start_right_ticks) * (pi * 7.2 / 508.8);
+    	float left_movement = (left-start_left_ticks) * (pi * 7.2 / 508.8);
+    	dist_travelled = (right_movement + left_movement)/2;
+    }
+    printf("dist travelled: %f", dist_travelled);
+    create_drive_direct(0,0);
+    msleep(20);
 }
 
 void r_line_follow(float distance, float speed, int port){
-   
-}
-
-void r_right_turn(float degree, float speed, double radius){
     
 }
+void r_right_turn(float degree, float speed, double radius){
+    
+    double right_radius = radius-distance_between_wheels/2;
+    double left_radius = radius+distance_between_wheels/2;
+    double right_wheel_cps = (speed*0.017453) * right_radius;
+    double left_wheel_cps = (speed*0.017453) * left_radius;
+    float right_speed = right_wheel_cps * 10;
+    float left_speed = left_wheel_cps * 10;
+    float speed_modifier = 0;
+    double theta = 0;
+    int start_right = create_gmec('r');
+    int start_left = create_gmec('l');
+    int right = start_right;
+    int left = start_left;
+    double used_accel_deg = accel_deg;
+    if(used_accel_deg > degree/2){
+        used_accel_deg = (degree/2)-1;
+    }
+    while(abs(theta) < degree){
+        if(theta < used_accel_deg){
+            speed_modifier = (theta/used_accel_deg);
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else if(theta > degree - used_accel_deg){
+            speed_modifier = (degree - theta)/used_accel_deg;
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else{
+            speed_modifier = 1;
+        }
+        create_drive_direct(left_speed*speed_modifier, right_speed*speed_modifier);
+        msleep(20);
+        if(abs(right_speed) > abs(left_speed)){
+            right = create_gmec('r');
+            float right_arc = (right-start_right) * (pi * 7.2 / 508.8); 
+            theta = ((right_arc)/right_radius)*57.296;
+            printf("value: %f\n",theta);
+        }else{
+            left = create_gmec('l');
+            float left_arc = (left-start_left) * (pi * 7.2 / 508.8); 
+            theta = ((left_arc)/left_radius)*57.296;
+            printf("value: %f\n",theta);
+        }
+    } 
+    create_drive_direct(0,0);
+    msleep(20);
+}
 void r_left_turn(float degree, float speed, double radius){
-   
+    double right_radius = radius+distance_between_wheels/2;
+    double left_radius = radius-distance_between_wheels/2;
+    double right_wheel_cps = (speed*0.017453) * right_radius;
+    double left_wheel_cps = (speed*0.017453) * left_radius;
+    float right_speed = right_wheel_cps * 10;
+    float left_speed = left_wheel_cps * 10;
+    float speed_modifier = 0;
+    double theta = 0;
+    int start_right = create_gmec('r');
+    int start_left = create_gmec('l');
+    int right = start_right;
+    int left = start_left;
+    double used_accel_deg = accel_deg;
+    if(used_accel_deg > degree/2){
+        used_accel_deg = (degree/2)-1;
+    }
+    while(abs(theta) < degree){
+        
+        if(theta < used_accel_deg){
+            speed_modifier = (theta/used_accel_deg);
+            if(speed_modifier < 0.2){
+                speed_modifier = 0.2;
+            }
+        }else if(theta > degree - used_accel_deg){
+            speed_modifier = (degree - theta)/used_accel_deg;
+            if(speed_modifier < 0.2){
+                speed_modifier = 0.2;
+            }
+        }else{
+            speed_modifier = 1;
+        }
+        
+        create_drive_direct(left_speed*speed_modifier, right_speed*speed_modifier);
+        msleep(20);
+        if(abs(right_speed) > abs(left_speed)){
+            right = create_gmec('r');
+            float right_arc = (right-start_right) * (pi * 7.2 / 508.8); 
+            theta = ((right_arc)/right_radius)*57.296;
+            printf("value: %f\n",theta);
+        }else{
+            left = create_gmec('l');
+            float left_arc = (left-start_left) * (pi * 7.2 / 508.8); 
+            theta = ((left_arc)/left_radius)*57.296;
+            printf("value: %f\n",theta);
+        }
+    } 
+    create_drive_direct(0,0);
+    msleep(20);
 }
 
 
@@ -384,6 +552,7 @@ void r_left_turn(float degree, float speed, double radius){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void drive(float distance, int speed){
+    printf("hello\n");
     if(create_in_use == 0){
         d_drive(distance, speed);
     }else{

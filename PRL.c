@@ -58,7 +58,14 @@ void set_accel_window_drive(float distance){
 void set_accel_window_turn(float degrees){
     accel_deg = degrees;
 }
-
+float analog_avg(int port, int loops){
+    int mass = 0;
+    int i;
+    for(i = 0; i < loops; i ++){
+        mass += analog(port);
+    }
+    return mass/loops;
+}
 //function that takes the error value received from the line follow sensor and gives back a radius for the turn
 float line_follow_calculate_radius(int error_value, float max_radius, float min_radius){
     //NOTE: white means positive error and black means negative error FOR LEFT SIDE LINE FOLLOW
@@ -130,6 +137,83 @@ void spin_motor(int port, int ticks, int speed){
         mav(port, speed);
     }
     mav(port,0);
+    msleep(20);
+}
+void reckless_drive(float distance, int speed){
+    cmpc(right_wheel);
+    while(abs(gmpc(right_wheel)) < distance * 83){
+        mav(right_wheel, speed);
+        mav(left_wheel, speed);
+        msleep(5);
+    }
+    mav(right_wheel, 0);
+    mav(left_wheel, 0);
+    msleep(20);
+}
+void reckless_turn(float degree, int speed){
+    cmpc(right_wheel);
+    float distance = degree*(pi/180)*(distance_between_wheels/2)*83;
+    while(abs(gmpc(right_wheel)) < distance){
+    	mav(right_wheel, -speed);
+        mav(left_wheel, speed);
+        msleep(5);
+    }
+    mav(right_wheel, 0);
+    mav(left_wheel, 0);
+    msleep(20);
+}
+void auto_callibrate(int port, float an_to_wheel){
+    int exit = 0;
+    int white = analog_avg(port, 10);
+    int black = 0; 
+    int grey = -100;
+    while(exit == 0){
+        mav(right_wheel, 100);
+        mav(left_wheel, 100);
+        msleep(5);
+        float val = analog_avg(port, 5);
+        if(val > black){
+            black = val; 
+        }
+        if(black > white + 100){
+            grey = (black+white)/2;
+        }
+        if(analog(port) < grey){
+            exit = 1;
+        }
+    }
+    printf("white: %d\nblack: %d\ngrey: %d\n",white,black,grey);
+    mav(right_wheel, 0);
+    mav(left_wheel, 0);
+    msleep(20);
+    grey_value = grey;
+    black_and_white_diff = black - white;
+    reckless_drive(16,200);
+    reckless_turn(87,200);
+    exit = 0;
+    int exit_count;
+    float speed_mod = 0;
+    float right_speed = 0;
+    float left_speed = 0;
+    while(exit == 0){
+        float error = grey_value - analog(0);
+        speed_mod = error*0.01;
+        right_speed = 300-speed_mod;
+        left_speed = 300+speed_mod;
+        mav(right_wheel, right_speed);
+        mav(left_wheel, left_speed);
+        msleep(5);
+        if(error > 40){
+            exit_count = 0;
+        }else{
+            exit_count += 1;
+        }
+        if(exit_count > 50){
+            exit = 1;
+        }
+    }
+    mav(right_wheel, 0);
+    mav(left_wheel, 0);
     msleep(20);
 }
 
@@ -388,6 +472,15 @@ int create_gmec(char wheel){
     return 0;
 }
 
+float create_speed_filter(float num){
+    float a = num;
+    if(abs(a) < 20){
+        a = 20;
+        return a*num/abs(num);
+    }
+    return num;
+}
+
 void r_drive(float distance, int speed){
     float right = create_gmec('r');
     float left = create_gmec('l');
@@ -396,30 +489,24 @@ void r_drive(float distance, int speed){
     float start_left_ticks = left;
 	float dist_travelled = 0;
     float speed_modifier = 0.1;
-    while(dist_travelled < distance){
+    while(abs(dist_travelled) < distance){
         float speed_adj = -((left-start_left_ticks) - (right-start_right_ticks))*1;
-        if(dist_travelled < accel_distance){
-            speed_modifier = (dist_travelled/accel_distance);
+        if(abs(dist_travelled) < accel_distance){
+            speed_modifier = (abs(dist_travelled)/accel_distance);
             
             if(speed_modifier < 0.1){
                 speed_modifier = 0.1;
             }
-        }else if(dist_travelled > distance - accel_distance*2){
-            speed_modifier = (distance - dist_travelled)/accel_distance;
+        }else if(abs(dist_travelled) > distance - accel_distance){
+            speed_modifier = (distance - abs(dist_travelled))/accel_distance;
             if(speed_modifier < 0.1){
                 speed_modifier = 0.1;
             }
         }else{
             speed_modifier = 1;
         }
-        float right_speed = (speed-speed_adj)*speed_modifier;
-        if(right_speed < 25){
-            right_speed = 25;
-        }
-        float left_speed = (speed+speed_adj)*speed_modifier;
-      	if(left_speed < 25){
-            left_speed = 25;
-        }
+        float right_speed = (create_speed_filter(speed)-speed_adj)*speed_modifier;
+        float left_speed = (create_speed_filter(speed)+speed_adj)*speed_modifier;
         create_drive_direct(left_speed,right_speed);
         msleep(5);  	
         right = create_gmec('r');
@@ -429,8 +516,9 @@ void r_drive(float distance, int speed){
         dist_travelled = (right_movement + left_movement)/2;
         
     }
-    while(dist_travelled > distance){
-        create_drive_direct(-20,-20);
+    while(fabs(dist_travelled) > distance){
+        printf("we overshot!\n");
+        create_drive_direct(create_speed_filter(-speed/100),create_speed_filter(-speed/100));
         right = create_gmec('r');
         left = create_gmec('l');
         float right_movement = (right-start_right_ticks) * (pi * 7.2 / 508.8);

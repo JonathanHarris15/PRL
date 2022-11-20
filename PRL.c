@@ -1,5 +1,5 @@
 /*
-PRL v0.9
+PRL v1.0
 Creator: Jonathan Harris, Jacob Ross
 Advisors: Zach Zimmerman, Nathan Povendo, Qbit
 the Plainview Robotics Library is the entire collection of commands used by the Plainview Robotics Team.
@@ -191,26 +191,28 @@ void auto_callibrate(int port, float an_to_wheel){
     reckless_drive(16,200);
     reckless_turn(87,200);
     exit = 0;
-    int exit_count;
     float speed_mod = 0;
     float right_speed = 0;
     float left_speed = 0;
-    while(exit == 0){
+    cmpc(0);
+    while(gmpc(0) < 5320){
         float error = grey_value - analog(0);
-        speed_mod = error*0.01;
+        speed_mod = error*0.05;
         right_speed = 300-speed_mod;
         left_speed = 300+speed_mod;
         mav(right_wheel, right_speed);
         mav(left_wheel, left_speed);
         msleep(5);
-        if(error > 40){
-            exit_count = 0;
-        }else{
-            exit_count += 1;
-        }
-        if(exit_count > 50){
-            exit = 1;
-        }
+    }
+    printf("right: %f\n", right_speed);
+    printf("left: %f\n", left_speed);
+    float actual_ratio = right_speed/left_speed;
+    float desired_ratio = right_wheel_tpr/left_wheel_tpr;
+    if(fabs(actual_ratio - desired_ratio) > 0.01){
+        printf("\nWARNING! WE ARE OUT OF CALIBRATION!!!\n");
+        printf("Readjusting the motors to drive in a straight line, distances will be off slightly\n");
+        set_wheel_ticks((right_wheel_tpr*left_speed)/right_speed, right_wheel_tpr);
+        
     }
     mav(right_wheel, 0);
     mav(left_wheel, 0);
@@ -531,7 +533,52 @@ void r_drive(float distance, int speed){
 }
 
 void r_line_follow(float distance, float speed, int port){
+    float right = create_gmec('r');
+    float left = create_gmec('l');
     
+    float start_right_ticks = right;
+    float start_left_ticks = left;
+	float dist_travelled = 0;
+    float speed_modifier = 0.1;
+    while(abs(dist_travelled) < distance){
+        float speed_adj = (analog(port)-grey_value) * 0.02;
+        if(abs(dist_travelled) < accel_distance){
+            speed_modifier = (abs(dist_travelled)/accel_distance);
+            
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else if(abs(dist_travelled) > distance - accel_distance){
+            speed_modifier = (distance - abs(dist_travelled))/accel_distance;
+            if(speed_modifier < 0.1){
+                speed_modifier = 0.1;
+            }
+        }else{
+            speed_modifier = 1;
+        }
+        float right_speed = (create_speed_filter(speed)-speed_adj)*speed_modifier;
+        float left_speed = (create_speed_filter(speed)+speed_adj)*speed_modifier;
+        create_drive_direct(left_speed,right_speed);
+        msleep(5);  	
+        right = create_gmec('r');
+        left = create_gmec('l');
+        float right_movement = (right-start_right_ticks) * (pi * 7.2 / 508.8);
+        float left_movement = (left-start_left_ticks) * (pi * 7.2 / 508.8);
+        dist_travelled = (right_movement + left_movement)/2;
+        
+    }
+    while(fabs(dist_travelled) > distance){
+        printf("we overshot!\n");
+        create_drive_direct(create_speed_filter(-speed/100),create_speed_filter(-speed/100));
+        right = create_gmec('r');
+        left = create_gmec('l');
+        float right_movement = (right-start_right_ticks) * (pi * 7.2 / 508.8);
+    	float left_movement = (left-start_left_ticks) * (pi * 7.2 / 508.8);
+    	dist_travelled = (right_movement + left_movement)/2;
+    }
+    printf("dist travelled: %f", dist_travelled);
+    create_drive_direct(0,0);
+    msleep(20);
 }
 void r_right_turn(float degree, float speed, double radius){
     

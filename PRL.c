@@ -18,7 +18,6 @@ The setup of this library for use is extremely easy and only requires a couple o
 	notify the library that a create is in use so that it will use the correct functions
     
     
-USE:
 The same function call works for both the create and the demo bot assuming that when using a create you followed setup step #3. 
 The list of functions is as follows:
 
@@ -26,8 +25,8 @@ The list of functions is as follows:
 #define pi 3.14159265359
 
 int create_in_use = 0;
-int chain = 0;
-int chain_start = 0;
+int chain = 1;
+int chain_start = 1;
 
 float wheel_circumference = 21.36283;
 float distance_between_wheels = 16.25;
@@ -86,26 +85,27 @@ float * calculate_wheel_speed(float radius, float speed){
     return speeds;
 }
 
-//servo function by Jacob of Noble High School (written on August 8,2019)
+//sorry Jacob
 void servo(int port, int position, int speed){   
-    int current = get_servo_position(port);
-    if(position > 2047){
-        position = 2047;
-    } 
-    if(position < 0){
-        position = 0;
-    }   
-    while(current <= position-speed || current >= position+speed){ 
-        if(current < position){
-            current += speed; 
-        }
-        if(current > position){
-            current -= speed;
-        }
-        set_servo_position(port, current);
-        msleep(2);
+    int pos1 = get_servo_position(port);
+    int pos2 = position;
+    double time = speed;
+    if(time < fabs(pos1-pos2)/3000){
+        time = fabs(pos1-pos2)/3000;
     }
-    set_servo_position(port,position); 
+    printf("val: %f\n",time);
+    double start = seconds();
+    //printf("value: %f\n",time);
+    while(seconds() < start+time){
+        double x = (seconds()-start)/time;
+        float multiplier = 0;
+        float total_dist = pos2-pos1;
+        float sqt = x*x;
+        multiplier = sqt/(2.0 * (sqt-x)+1.0);
+        printf("new pos: %f\n", seconds()-start);
+        set_servo_position(0,pos1 + (total_dist*multiplier));
+        msleep(10);
+    }
 } 
 
 void start_chain(int num){
@@ -242,6 +242,7 @@ void d_drive(float distance, int speed){
     cmpc(right_wheel);
     cmpc(left_wheel);
     float speed_mod = 0.05;
+    printf("%d \n",chain);
     while(abs(gmpc(right_wheel)) < right_wheel_target_ticks || abs(gmpc(left_wheel)) < left_wheel_target_ticks){
         if(abs(gmpc(right_wheel)) < accel_window_ticks){
             speed_mod = abs(gmpc(right_wheel))/accel_window_ticks;
@@ -270,11 +271,11 @@ void d_drive(float distance, int speed){
         }
     }
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -348,11 +349,11 @@ void d_line_follow(float distance, float speed, int port){
         }
     }
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -412,11 +413,11 @@ void d_right_turn(float degree, float speed, double radius){
          
     }
   	if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
         printf("chain_done\n");
     }else{
         chain --;
@@ -475,11 +476,11 @@ void d_left_turn(float degree, float speed, double radius){
          
     }
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -582,11 +583,11 @@ void r_drive(float distance, int speed){
     }
     printf("dist travelled: %f", dist_travelled);
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -643,11 +644,11 @@ void r_line_follow(float distance, float speed, int port){
     }
     printf("dist travelled: %f", dist_travelled);
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -705,11 +706,11 @@ void r_right_turn(float degree, float speed, double radius){
         }
     } 
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -768,11 +769,11 @@ void r_left_turn(float degree, float speed, double radius){
         }
     } 
     if(chain == 1){
-        chain = 0;
-        chain_start = 0;
+        chain = 1;
+        chain_start = 1;
         mav(right_wheel, 0);
         mav(left_wheel, 0);
-        msleep(5);
+        msleep(20);
     }else{
         chain --;
     }
@@ -784,7 +785,6 @@ void r_left_turn(float degree, float speed, double radius){
 //UNIVERSAL FUNCTIONS
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 void drive(float distance, int speed){
     printf("hello\n");
     if(create_in_use == 0){
@@ -818,23 +818,23 @@ void left_turn(float degree, float speed, double radius){
     }
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SEQUENCE SIMPLIFIERS
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void L_drive(float y, float x, float radius, float speed){
-    start_chain(3);
-    drive(y-radius, speed);
-    float turn_speed = (speed/radius)*57.29577951;
-    if(x > 0){
-        right_turn(90,turn_speed, radius);
-    }else if(x < 0){
-        left_turn(90,turn_speed, radius);
+void L_drive(float y, float x, float radius, float d_speed, float t_speed){
+    if(radius > distance_between_wheels/2){
+    	start_chain(3);
     }
-    drive(x-radius, speed);
+    drive(y-radius, d_speed);
+    if(x > 0){
+        right_turn(90,t_speed, radius);
+    }else if(x < 0){
+        left_turn(90,t_speed, radius);
+    }
+    drive(x-radius, d_speed);
 }
 
 void hypo_drive(float y, float x, float speed){
@@ -849,20 +849,26 @@ void hypo_drive(float y, float x, float speed){
         left_turn(deg,10,0);
     }
     drive(hyp, speed);
+    if(x > 0){
+        left_turn(deg,10,0);
+    }else{
+        right_turn(deg,10,0);
+    }
+    
 }
 
 void drive_skew(float y, float x, float speed){
     float a = x/2;
     float b = y/2;
-    float radius = ((b*b)+(a*a))/(fabs(a)*4);
+    float radius = ((b*b)+(a*a))/(fabs(a)*2);
     float deg = asin(fabs(b)/radius)*57.29577951;
-    float turn_speed = (speed/radius)*57.29577951;
     start_chain(2);
+    printf("value: %f\n", deg);
     if(x > 0){
         right_turn(deg, speed, radius);
         left_turn(deg,speed,radius);
     }else{
-        left_turn(deg,speed,radius);
-        right_trun(deg, speed, radius);
+        left_turn(deg, speed,radius);
+        right_turn(deg, speed, radius);
     }
 }

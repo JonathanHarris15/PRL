@@ -784,6 +784,7 @@ void r_left_turn(float degree, float speed, double radius){
 //UNIVERSAL FUNCTIONS
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void drive(float distance, int speed){
     printf("hello\n");
     if(create_in_use == 0){
@@ -814,5 +815,54 @@ void left_turn(float degree, float speed, double radius){
         d_left_turn(degree, speed, radius);
     }else{
         r_left_turn(degree, speed, radius);
+    }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//SEQUENCE SIMPLIFIERS
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void L_drive(float y, float x, float radius, float speed){
+    start_chain(3);
+    drive(y-radius, speed);
+    float turn_speed = (speed/radius)*57.29577951;
+    if(x > 0){
+        right_turn(90,turn_speed, radius);
+    }else if(x < 0){
+        left_turn(90,turn_speed, radius);
+    }
+    drive(x-radius, speed);
+}
+
+void hypo_drive(float y, float x, float speed){
+    float hyp = sqrt((y*y)+(x*x));
+    float deg = asin(fabs(x)/hyp)*57.29577951;
+    if(y < 0){
+        deg += 90;
+    }
+    if(x > 0){
+        right_turn(deg,10,0);
+    }else{
+        left_turn(deg,10,0);
+    }
+    drive(hyp, speed);
+}
+
+void drive_skew(float y, float x, float speed){
+    float a = x/2;
+    float b = y/2;
+    float radius = ((b*b)+(a*a))/(fabs(a)*4);
+    float deg = asin(fabs(b)/radius)*57.29577951;
+    float turn_speed = (speed/radius)*57.29577951;
+    start_chain(2);
+    if(x > 0){
+        right_turn(deg, speed, radius);
+        left_turn(deg,speed,radius);
+    }else{
+        left_turn(deg,speed,radius);
+        right_trun(deg, speed, radius);
     }
 }

@@ -103,7 +103,7 @@ void servo(int port, int position, int speed){
         float sqt = x*x;
         multiplier = sqt/(2.0 * (sqt-x)+1.0);
         printf("new pos: %f\n", seconds()-start);
-        set_servo_position(0,pos1 + (total_dist*multiplier));
+        set_servo_position(port,pos1 + (total_dist*multiplier));
         msleep(10);
     }
 } 

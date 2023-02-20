@@ -1,5 +1,5 @@
 /*
-PRL v1.8
+PRL v1.7.5
 Creator: Jonathan Harris
 Advisors: Zach Zimmerman, Braden McDorman, Nathan Povendo, Qbit
 the Plainview Robotics Library is the entire collection of commands used by the Plainview Robotics Team.
@@ -42,7 +42,7 @@ float black_and_white_diff = 500;
 float minimum_line_follow_radius = 30;
 float maximum_line_follow_radius = 1000;
 float used_tape_width = 5.08;
-float accel_distance = 0.4;
+float accel_distance = 0.15;
 
 int servo_desired[4] = {-1,-1,-1,-1};
 int servo_current[4] = {-1,-1,-1,-1};
@@ -240,7 +240,7 @@ void set_wheel_ticks(int left, int right){
 }
 void spin_motor(int port, int ticks, int speed){
     cmpc(port);
-    while(gmpc(port) < ticks){
+    while(abs(gmpc(port)) < ticks){
         mav(port, speed);
     }
     mav(port,0);
@@ -576,7 +576,7 @@ void r_drive(float distance, float speed){
     create_gmec_update();
     float speed_mod = 0;
     int drive_time = 15;//<<< this number needs to be changed with the loop msleep
-    int loops = 0;
+    int loops = 1;
     while(abs(y) < distance*1.05){
         int loop_start_time = seconds();
 		
@@ -586,6 +586,7 @@ void r_drive(float distance, float speed){
         create_left_speed = speed+speed_mod;
 
         float speed_ramp = calculate_speed_ramp(distance*1.05, abs(y));
+        vfprint(speed_ramp);
         int rs= create_speed_filter(create_right_speed*speed_ramp);
         int ls = create_speed_filter(create_left_speed*speed_ramp);
         create_drive_direct(ls,rs);
@@ -614,9 +615,11 @@ void r_drive(float distance, float speed){
         prev_x = x;
         d += x;
         speed_mod = (p*200)+(i*10)+(d*50);
-        vfprint(speed_mod);
         loops ++;
+        //vfprint(y);
     }
+    create_drive_direct(0,0);
+    msleep(50);
 }
 
 /*
@@ -871,4 +874,3 @@ void drive_skew(float y, float x, float speed){
     }
 }
 */
-

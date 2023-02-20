@@ -1,5 +1,5 @@
 /*
-PRL v1.7.5
+PRL v1.8
 Creator: Jonathan Harris
 Advisors: Zach Zimmerman, Braden McDorman, Nathan Povendo, Qbit
 the Plainview Robotics Library is the entire collection of commands used by the Plainview Robotics Team.
@@ -144,12 +144,15 @@ position calculate_location_change(double right_movement, double left_movement, 
     return output;
 }
 
-float calculate_speed_ramp(float final_dist, float current_dist, float start_seconds)
+float calculate_speed_ramp(float final_dist, float current_dist)
 {
-    float down_slope_milliseconds = 1200;
-    if((seconds()-start_seconds)*1000 < down_slope_milliseconds){
-        float norm_x = ((seconds()-start_seconds)*1000)/down_slope_milliseconds;
-        return sin(pi/2*norm_x);
+    if(current_dist < final_dist*accel_distance){
+        float norm_x = current_dist/(final_dist*accel_distance);
+        float tween = sin(pi/2*norm_x);
+        if(tween < 0.1){
+            return 0.1;
+        }
+        return tween;
     }else if(current_dist > final_dist - (accel_distance*final_dist)){
         float norm_x = (final_dist-current_dist-(accel_distance*final_dist))/(accel_distance*final_dist);
         return cos((pi/2) * norm_x);
@@ -573,7 +576,6 @@ void r_drive(float distance, float speed){
     create_gmec_update();
     float speed_mod = 0;
     int drive_time = 15;//<<< this number needs to be changed with the loop msleep
-	float ease_start_time = seconds();
     int loops = 0;
     while(abs(y) < distance*1.05){
         int loop_start_time = seconds();
@@ -583,7 +585,7 @@ void r_drive(float distance, float speed){
         create_right_speed = speed-speed_mod;
         create_left_speed = speed+speed_mod;
 
-        float speed_ramp = calculate_speed_ramp(distance*1.05, abs(y), ease_start_time);
+        float speed_ramp = calculate_speed_ramp(distance*1.05, abs(y));
         int rs= create_speed_filter(create_right_speed*speed_ramp);
         int ls = create_speed_filter(create_left_speed*speed_ramp);
         create_drive_direct(ls,rs);
@@ -652,13 +654,12 @@ void r_right_turn(float degree, float speed, double radius){
     float left_arc = 0;
     double theta = 0;
     create_gmec_update();
-    int drive_time =15;
-    float ease_start_time = seconds();
+	int drive_time =15;
     while(abs(theta) < degree){
         int loop_start_time = seconds();
-	encoder_counts_t start = encoder_counts;
+		encoder_counts_t start = encoder_counts;
         
-        float speed_ramp = calculate_speed_ramp(degree, abs(theta), ease_start_time);
+        float speed_ramp = calculate_speed_ramp(degree, abs(theta));
         create_drive_direct(create_speed_filter(left_speed*speed_ramp), create_speed_filter(right_speed*speed_ramp));
         msleep(15);
         
@@ -689,13 +690,12 @@ void r_left_turn(float degree, float speed, double radius){
     float left_arc = 0;
     double theta = 0;
     create_gmec_update();
-    int drive_time =15;
-    float ease_start_time = seconds();
+	int drive_time =15;
     while(abs(theta) < degree){
         int loop_start_time = seconds();
-	encoder_counts_t start = encoder_counts;
+		encoder_counts_t start = encoder_counts;
         
-        float speed_ramp = calculate_speed_ramp(degree, abs(theta), ease_start_time);
+        float speed_ramp = calculate_speed_ramp(degree, abs(theta));
         create_drive_direct(create_speed_filter(left_speed*speed_ramp), create_speed_filter(right_speed*speed_ramp));
         msleep(15);
         
@@ -713,6 +713,73 @@ void r_left_turn(float degree, float speed, double radius){
         vfprint(theta);
         drive_time = (seconds()-loop_start_time)*1000;
     } 
+}
+
+void create_square_up(){
+    
+    int squarelspeed;
+    int squarerspeed;
+    //1600
+    while(get_create_lcliff_amt() > 2000 || get_create_rcliff_amt() > 2000){
+     
+        if(get_create_lcliff_amt() > 2000){
+            
+            squarelspeed = 100;
+            
+        }else{
+         
+            squarelspeed = -20;
+            
+        }
+        if(get_create_rcliff_amt() > 2000){
+         
+            squarerspeed = 100;
+            
+        }else{
+            
+            squarerspeed = -20;
+            
+        }
+        create_drive_direct(squarelspeed,squarerspeed);
+        
+        msleep(15);
+       printf("the cliff value for the left wheel is: %d \n",(get_create_rcliff_amt() - get_create_lcliff_amt()));
+    }
+    create_drive_direct(0,0);
+    msleep(10);
+}
+void create_square_up_back(){
+    
+    int squarelspeed;
+    int squarerspeed;
+    
+    while(get_create_lcliff_amt() > 1600 || get_create_rcliff_amt() > 1600){
+     
+        if(get_create_lcliff_amt() > 1600){
+            
+            squarelspeed = -100;
+            
+        }else{
+         
+            squarelspeed = 20;
+            
+        }
+        if(get_create_rcliff_amt() > 1600){
+         
+            squarerspeed = -100;
+            
+        }else{
+            
+            squarerspeed = 20;
+            
+        }
+        create_drive_direct(squarelspeed,squarerspeed);
+        
+        msleep(15);
+       printf("the cliff value for the left wheel is: %d \n",(get_create_rcliff_amt() - get_create_lcliff_amt()));
+    }
+    create_drive_direct(0,0);
+    msleep(10);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -804,3 +871,4 @@ void drive_skew(float y, float x, float speed){
     }
 }
 */
+

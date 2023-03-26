@@ -399,57 +399,6 @@ void d_left_turn(float degree, float speed, double radius){
 }
 
 
-/* In progess
-void uni_square_up(int speed, int port){
-    if(speed > max_drive_speed){
-        speed = max_drive_speed;
-    }
-    float r_tps = right_wheel_tpc * speed;
-    float l_tps = left_wheel_tpc *speed;
-    float r_speed = (r_tps+2)/1.08;
-    float l_speed = (l_tps+2)/1.08;
-   	clear_wheels();
-    float white_val = analog_avg(port, 10);
-    float black_val = white_val;
-    float grey_val = 0;
-    float distance_traveled;
-	int exit = 0;
-    float memory[10000] = {0};
-    int index = 0;
-    float tape_crossed = 0;
-    while(exit == 0){
-        mav(right_wheel, r_speed);
-        mav(left_wheel, l_speed);
-        msleep(5);
-        distance_traveled = (gmpc(right_wheel)/right_wheel_tpc+gmpc(left_wheel)/left_wheel_tpc)/2;
-        float sensor_read = analog_avg(port,5);
-        if(sensor_read > black_val){
-            black_val = sensor_read;
-            memory[index] = sensor_read;
-            memory[index+1] = distance_traveled;
-            index += 2;
-        }
-        if(index > 10000){
-            printf("overflow!\n");
-        }
-        grey_val = (white_val+black_val)/2;
-        if(black_val > white_val + 70 && sensor_read < grey_val){
-            exit = 1;
-        }
-    }
-    int i;
-    int closest_index = 0;
-    int closest_val = 5000;
-    for(i = 0; i < index; i += 2){
-        if(abs(memory[i] - grey_val) < closest_val){
-            closest_val = abs(memory[i] - grey_val);
-            closest_index = i;
-        }
-    }
-    tape_crossed = distance_traveled - memory[closest_index+1];
-    vfprint(tape_crossed);
-}
-*/
 
 
 ////////////////////////////////////////////////////////////////

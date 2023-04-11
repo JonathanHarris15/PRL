@@ -336,8 +336,8 @@ void d_line_follow(float distance, float speed, int port, char side){
         	speed_mod = 0;
     	}
         float ramp_mod = calculate_speed_ramp(distance, y);
-        mav(0,(target_speed + speed_mod)*ramp_mod);//left wheel
-        mav(1,(target_speed - speed_mod)*ramp_mod);//right wheel
+        mav(right_wheel,(target_speed + speed_mod)*ramp_mod);//left wheel
+        mav(left_wheel,(target_speed - speed_mod)*ramp_mod);//right wheel
         msleep(30);
         encoder_counts_t change = {gmpc(left_wheel),gmpc(right_wheel)};
         clear_wheels();

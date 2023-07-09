@@ -118,20 +118,22 @@ void light(int port){
         msleep(3);
     }
     float on = analog_avg(port,5);
-   	vfprint(on);
+    vfprint(on);
     msleep(1000);
     printf("press the button when light is OFF");
     while(!a_button()){
         msleep(3);
     }
     float off = analog_avg(port,5);
-  	float gry = (on+off)/2;
+    float gry = (on+off)/2;
     printf("Grey Value is %f. now waiting for light\n", gry);
     while(analog(port) > gry){
         msleep(3);
     }
-    
+}
 
+float dist(float x1, float y1, float x2, float y2){
+    return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 
 //This takes in wheel movement and the current theta position of the robot and returns the change in pose
@@ -168,6 +170,74 @@ float calculate_speed_ramp(float final_dist, float current_dist){
     }else{
         return 1;
     } 
+}
+float total_wp_distance(float wp[], int size){
+    float mass = 0;
+    int i;
+    for (i = 0; i < size; i += 2)
+    {
+        if (i == 0){
+            mass += dist (0, 0, wp[0], wp[1]);
+        }
+        else
+        {
+            mass += dist(wp[i - 2], wp[i - 1], wp[i], wp[i + 1]);
+        }
+    }
+    return mass;
+}
+position find_point(float wp[], int size, float a){
+    position output;
+    float distances[size/2];
+    float mass = 0;
+    int i;
+    for (i = 0; i < size; i += 2)
+    {
+        if (i == 0){
+            distances[0] = dist(0, 0, wp[0], wp[1]);
+            mass += dist (0, 0, wp[0], wp[1]);
+        }
+        else
+        {
+            distances[i/2] = dist (wp[i - 2], wp[i - 1], wp[i], wp[i + 1]);
+            mass += dist(wp[i - 2], wp[i - 1], wp[i], wp[i + 1]);
+        }
+    }
+
+    float point_dist = mass * a;
+    int zone = 0;
+    float zone_dist_t = 0;
+    float zone_a = 0;
+    for (i = 0; i < size/2; i++)
+    {
+        zone_dist_t += distances[i];
+        if (zone_dist_t - point_dist > 0){
+            zone_a = (point_dist - (zone_dist_t - distances[i])) / distances[i];
+            break;
+        }
+        zone++;
+    }
+    float xd, yd;
+    if (zone == 0)
+    {
+        xd = wp[0] * zone_a;
+        yd = wp[1] * zone_a;
+        output.x = xd;
+        output.y = yd;
+        return output;
+    }
+    else
+    {
+        float x1 = wp[zone * 2];
+        float y1 = wp[(zone * 2) + 1];
+        float x2 = wp[(zone * 2) - 2];
+        float y2 = wp[(zone * 2) - 1];
+        xd = (x1 - x2) * zone_a;
+        yd = (y1 - y2) * zone_a;
+        output.x = x2 + xd;
+        output.y = y2 + yd;
+        return output;
+    }
 }
 
 
@@ -219,7 +289,7 @@ void servo(int port,int position,int speed){
                     multiplier = sqt/(2.0 * (sqt-x)+1.0);
                     set_servo_position(i,servo_current[i] + (total_dist*multiplier));
                     servo_time_elapsed[i] += seconds() - start;
-                    
+
                 }else{
                     set_servo_position(i,servo_desired[i]);
                 }
@@ -236,21 +306,21 @@ void step_servos(double time){
     float multiplier = 0;
     double x = 0;
     for(i = 0; i < 4; i ++){
-            if(servo_desired[i] != -1){
-                if(servo_time_elapsed[i] < servo_time[i] && servo_current[i] != servo_desired[i]){
-                    x = (servo_time_elapsed[i])/(servo_time[i]);
-                    float total_dist = servo_desired[i]-servo_current[i];
-                    float sqt = x*x;
-                    multiplier = sqt/(2.0 * (sqt-x)+1.0);
-                    set_servo_position(i,servo_current[i] + (total_dist*multiplier));
-                    printf("%lf\n",15.0/1000.0);
-                    servo_time_elapsed[i] += time;
-                    
-                }else{
-                    set_servo_position(i,servo_desired[i]);
-                }
+        if(servo_desired[i] != -1){
+            if(servo_time_elapsed[i] < servo_time[i] && servo_current[i] != servo_desired[i]){
+                x = (servo_time_elapsed[i])/(servo_time[i]);
+                float total_dist = servo_desired[i]-servo_current[i];
+                float sqt = x*x;
+                multiplier = sqt/(2.0 * (sqt-x)+1.0);
+                set_servo_position(i,servo_current[i] + (total_dist*multiplier));
+                printf("%lf\n",15.0/1000.0);
+                servo_time_elapsed[i] += time;
+
+            }else{
+                set_servo_position(i,servo_desired[i]);
             }
         }
+    }
 }
 
 ////////////////////////////////////////////////////////////////
@@ -275,6 +345,7 @@ encoder_counts_f calculate_movement_demo(encoder_counts_t c){
     encoder_counts_t change = c;
     float rc = change.right;
     float lc = change.left;
+    vfprint(rc);
     encoder_counts_f output = {rc/right_wheel_tpc, lc/left_wheel_tpc};
     return output;
 }
@@ -356,14 +427,14 @@ void d_line_follow(float distance, float speed, int port, char side){
     float target_speed = (tps + 2)/1.08;
     double start = seconds();
     while(y < distance){
-       	float error = grey_value - analog(port);
+        float error = grey_value - analog(port);
         float speed_mod = error*0.7;
-       	if(side == 'l'){
+        if(side == 'l'){
             speed_mod *= -1;
         }
         if(fabs(theta-(pi/2))*57.296 > max_angle){
-        	speed_mod = 0;
-    	}
+            speed_mod = 0;
+        }
         float ramp_mod = calculate_speed_ramp(distance, y);
         mav(0,(target_speed + speed_mod)*ramp_mod);//left wheel
         mav(1,(target_speed - speed_mod)*ramp_mod);//right wheel
@@ -385,7 +456,7 @@ void d_line_follow(float distance, float speed, int port, char side){
 //degrees and speed should alway be positive but radius can be reversed to get diffirent functionality
 void d_right_turn(float degree, float speed, double radius){
     float radians = (degree)/57.296;
-	clear_wheels();
+    clear_wheels();
     float right_radius = radius - (distance_between_wheels/2); 
     float left_radius = radius + (distance_between_wheels/2);
     float right_arc = right_radius*radians*right_wheel_tpc;
@@ -401,7 +472,7 @@ void d_right_turn(float degree, float speed, double radius){
         right_speed = -speed;
         left_speed = -(left_arc*speed)/right_arc;
     }
-	float mod = 0;
+    float mod = 0;
     double start = seconds();
     while(abs(gmpc(right_wheel)) < fabs(right_arc) || abs(gmpc(left_wheel)) < fabs(left_arc)){
         mod = calculate_speed_ramp(fabs(left_arc)/left_wheel_tpc, abs(gmpc(left_wheel))/left_wheel_tpc);
@@ -420,7 +491,7 @@ void d_right_turn(float degree, float speed, double radius){
 
 void d_left_turn(float degree, float speed, double radius){   
     float radians = (degree)/57.296;
-	clear_wheels();
+    clear_wheels();
     float right_radius = radius + (distance_between_wheels/2); 
     float left_radius = radius - (distance_between_wheels/2);
     float right_arc = right_radius*radians*right_wheel_tpc;
@@ -436,7 +507,7 @@ void d_left_turn(float degree, float speed, double radius){
         left_speed = -speed;
         right_speed = -(right_arc*speed)/left_arc;
     }
-	float mod = 0;
+    float mod = 0;
     double start = seconds();
     while(abs(gmpc(right_wheel)) < fabs(right_arc) || abs(gmpc(left_wheel)) < fabs(left_arc)){
         mod = calculate_speed_ramp(fabs(left_arc)/left_wheel_tpc, abs(gmpc(left_wheel))/left_wheel_tpc);
@@ -449,22 +520,25 @@ void d_left_turn(float degree, float speed, double radius){
         step_servos(seconds()-start);
         start = seconds();
     }
-	mav(right_wheel,0);
+    mav(right_wheel,0);
     mav(left_wheel,0);
 }
 
 
 void d_waypoint_drive(float param[],int speed, float precision, int size){
-    int target_point = 0;
     double x = 0, y = 0, theta = pi/2, speed_mod = 0, theta_error = 0;
     clear_wheels();
     int exit = 0;
     float last_error = 0;
     float i = 0;
     double start = seconds();
+    float wp_dist = total_wp_distance(param, size);
+    float point_push = 0.1/wp_dist;
+    float target_point = 0;
     while(exit == 0){
-        float tpx = param[target_point*2];
-        float tpy = param[(target_point*2)+1];
+        position point = find_point(param, size, target_point);
+        float tpx = point.x;
+        float tpy = point.y;
         float xe = tpx - x;
         float ye = tpy - y;
         //theta error logic
@@ -491,7 +565,7 @@ void d_waypoint_drive(float param[],int speed, float precision, int size){
         double p = theta_error*10;    
         float d = -(theta_error - last_error)*0;
         i += theta_error;
-        printf("%f %f %f\n", p, i*0, d);
+       
         speed_mod = (p+d+(i*0))*speed;
         if(fabs(speed_mod) > speed/0.5){
             speed_mod = (speed/0.5)*(speed_mod/fabs(speed_mod));
@@ -502,23 +576,31 @@ void d_waypoint_drive(float param[],int speed, float precision, int size){
         encoder_counts_t change = {gmpc(right_wheel), gmpc(left_wheel)};
         clear_wheels();
         encoder_counts_f movement = calculate_movement_demo(change);
-        position locational_change = calculate_location_change(movement.right, movement.left, theta);
-        y += locational_change.y;
-        x += locational_change.x;       
-        theta += locational_change.theta;
-        if(theta > 2*pi){
-            theta -= 2*pi;
+        //vfprint(movement.right);
+        if(movement.right == 0 && movement.left == 0){
+              
+        }else{
+            position locational_change = calculate_location_change(movement.right, movement.left, theta);
+        	y += locational_change.y;
+        	x += locational_change.x;       
+        	theta += locational_change.theta;
+        	if(theta > 2*pi){
+            	theta -= 2*pi;
+        	}
+        	if(theta < 0){
+            	theta += 2*pi;
+        	}
         }
-        if(theta < 0){
-            theta += 2*pi;
-        }
+        //printf("%f %f %f\n", x, y, theta);
         float distance_error = sqrt(pow((tpx-x),2)+pow((tpy-y),2));
+
         if(distance_error < precision){
-            if(target_point == (size/2) - 1){
+            if(target_point > 0.95){
                 exit = 1;
             }
             else{
-                target_point ++;
+                printf("moving carrot!\n");
+                target_point += point_push;
                 i = 0;
             }
         }
@@ -556,9 +638,9 @@ void create_activate(){
     pivot = distance_between_wheels/2;
 }
 void create_adjust_wheel_tpr(float l,float r){
-	left_wheel_tpr = l;
-	right_wheel_tpr = r;
-	left_wheel_tpc = l/wheel_circumference;
+    left_wheel_tpr = l;
+    right_wheel_tpr = r;
+    left_wheel_tpc = l/wheel_circumference;
     right_wheel_tpc = r/wheel_circumference;
 }
 encoder_counts_t rectify(const encoder_counts_t *const prev, const encoder_counts_t *const next)
@@ -615,7 +697,7 @@ void create_gmec_update()
     encoder_counts.right += rectified.right - previous_encoder_counts.right;
     previous_encoder_counts = next_encoder_counts;
 }
-    
+
 float create_speed_filter(float num){
     if(num == 0){
         return 0;
@@ -641,10 +723,10 @@ void r_drive(float distance, float speed){
         //DRIVE AND DRIVE_RECORD
         if(speed > 0){
             create_right_speed = speed+speed_mod;
-      		create_left_speed = speed-speed_mod;
+            create_left_speed = speed-speed_mod;
         }else{
-        	create_right_speed = speed-speed_mod;
-      		create_left_speed = speed+speed_mod;
+            create_right_speed = speed-speed_mod;
+            create_left_speed = speed+speed_mod;
         }
         float speed_ramp = calculate_speed_ramp(distance,fabs(y));
         create_drive_direct(create_speed_filter(create_left_speed*speed_ramp), create_speed_filter(create_right_speed*speed_ramp));
@@ -659,14 +741,14 @@ void r_drive(float distance, float speed){
         x += locational_change.x;       
         theta += locational_change.theta;
         printf("%lf\n",x);
-        
+
         ////PID CONTROLL////
         float p = x;
         float d = x - prev_x;
         prev_x = x;
         speed_mod = ((p*50)+(d*400))*speed_ramp;
         step_servos(seconds()-start_time);
-		start_time = seconds();
+        start_time = seconds();
     }
     create_drive_direct(0,0);
 }
@@ -681,8 +763,8 @@ void r_line_follow(float distance, float speed, int port, char side){
         if(side == 'r'){
             speed_adj = -speed_adj;
         }
-        
-     	create_right_speed = (-(create_speed_filter(speed)-speed_adj));
+
+        create_right_speed = (-(create_speed_filter(speed)-speed_adj));
         create_left_speed = (-(create_speed_filter(speed)+speed_adj));
         create_drive_direct(create_left_speed,create_right_speed);
         msleep(15);  	
@@ -692,7 +774,7 @@ void r_line_follow(float distance, float speed, int port, char side){
         encoder_counts_f movement = calculate_movement(change);
         dist_travelled += (movement.right + movement.left)/2;
         step_servos(seconds()-start_time);
-		start_time = seconds();
+        start_time = seconds();
     }
     create_drive_direct(0,0);
 }
@@ -744,8 +826,8 @@ void r_right_turn(float degree, float speed, double radius){
         if(dist - fabs(turned_dist) < 0.1 && moving_speed/loop_time < 0.0002){
             exit = 1;
         }
-		step_servos(seconds()-start_time);
-		start_time = seconds();
+        step_servos(seconds()-start_time);
+        start_time = seconds();
     }
     create_drive_direct(0,0);
 }
@@ -792,7 +874,7 @@ void r_left_turn(float degree, float speed, double radius){
         }else{
             turned_dist += movement.right - fabs(movement.left);
         }
-        
+
         moving_speed = movement.right + movement.left;
         loop_time = (seconds() - loop_start)*1000;
         if(dist - fabs(turned_dist) < 0.1 && moving_speed/loop_time < 0.0002){
@@ -810,30 +892,30 @@ void create_square_up(int speed){
     //1600
     double start_time = seconds();
     while(get_create_lcliff_amt() > 2300 || get_create_rcliff_amt() > 2300){
-     
+
         if(get_create_lcliff_amt() > 2300){
-            
+
             squarelspeed = speed;
-            
+
         }else{
-         
+
             squarelspeed = -20 * speed/fabs(speed);
-            
+
         }
         if(get_create_rcliff_amt() > 2300){
-         
+
             squarerspeed = speed;
-            
+
         }else{
-            
+
             squarerspeed = -20 * speed/fabs(speed);
-            
+
         }
         create_drive_direct(squarelspeed,squarerspeed);
         printf("%d\n",get_create_lcliff_amt());
         msleep(15);
         step_servos(seconds()-start_time);
-		start_time = seconds();
+        start_time = seconds();
     }
     create_drive_direct(0,0);
     msleep(10);
@@ -844,29 +926,29 @@ void create_square_up_close(int speed){
     int squarelspeed, squarerspeed;
     double start_time = seconds();
     while(get_create_lfcliff_amt() > 2000 || get_create_rfcliff_amt() > 2000){
-     
+
         if(get_create_lfcliff_amt() > 2000){
-            
+
             squarelspeed = speed;
-            
+
         }else{
-         
+
             squarelspeed = -20 * speed/fabs(speed);
-            
+
         }
         if(get_create_rfcliff_amt() > 2000){
-         
+
             squarerspeed = speed;
-            
+
         }else{
-            
+
             squarerspeed = -20 * speed/fabs(speed);
-            
+
         }
         create_drive_direct(squarelspeed,squarerspeed);
         msleep(15);
         step_servos(seconds()-start_time);
-		start_time = seconds();
+        start_time = seconds();
     }
     create_drive_direct(0,0);
     msleep(10);
@@ -948,7 +1030,7 @@ void create_waypoint_drive(float param[],int speed, float precision, int size){
         //graphics_circle_fill((798/2)+(x*zoom),(798/4)-(y*zoom),zoom,0,255,0);
         //graphics_update();
         step_servos(seconds()-start_time);
-		start_time = seconds();
+        start_time = seconds();
     }
     create_drive_direct(0,0);
     msleep(50);
@@ -1020,7 +1102,7 @@ void waypoint_drive(float param[],int speed, float precision, int size){
 //speeds might be a little wonky
 void L_drive(float y, float x, float radius, float d_speed, float t_speed){
     if(radius > distance_between_wheels/2){
-    	start_chain(3);
+        start_chain(3);
     }
     drive(y-radius, d_speed);
     if(x > 0){
